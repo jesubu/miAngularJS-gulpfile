@@ -1,0 +1,118 @@
+var gulp = require('gulp');
+var concat = require('gulp-concat');
+var uglify = require('gulp-uglify');
+var connect = require('gulp-connect');
+var historyApiFallback=require('connect-history-api-fallback');
+var plumber = require('gulp-plumber');
+var rename = require('gulp-rename');
+var notify = require('gulp-notify');
+var minifycss = require('gulp-minify-css');
+var minifyHtml = require("gulp-minify-html");
+ 
+//HTML-->minifica y genera el html en una ubicación determinada
+gulp.task('html', function () {
+    gulp.src('./src/**/*.html') 
+    .pipe(minifyHtml())
+    .pipe(gulp.dest('dist'))
+	.pipe(connect.reload())
+});
+
+//HTML--> Minifica cada uno de los html en sus ubucaciones
+gulp.task('htmlPartials', function () {
+    gulp.src('./src/**/*.html') 
+    .pipe(minifyHtml())
+	.pipe(gulp.dest(function(file) {
+		return (file.base).replace('src','dist');
+	}))
+	.pipe(connect.reload())
+});
+
+//scripts JS-->Minifica y unifica los scripts que se encuentren en 'scripts', generando uno solo
+//y dejandolo en la carpeta scripts
+gulp.task('js', function(){
+  return gulp.src('src/scripts/**/*.js')
+    .pipe(plumber({
+      errorHandler: function (error) {
+        console.log('js task KO :( ' + error.message);
+        this.emit('end');
+    }}))
+	//.pipe(concat('main.js'))
+    .pipe(rename({suffix: '.min'}))
+    .pipe(uglify())	
+    .pipe(gulp.dest('dist/scripts/'))
+    .pipe(connect.reload())
+	.pipe(notify('js task OK :)'))
+});
+
+// Controladores-->coje los .js de los controladores minificando y dejandolo en su ubicación.
+gulp.task('controllers', function () {
+    return gulp.src('./src/app/**/*.js')
+        .pipe(uglify())
+        .pipe(rename({suffix: '.min'}))
+        .pipe(gulp.dest(function(file) {
+            return (file.base).replace('src','dist');
+        }))
+		
+        .pipe(notify('js task OK :)'))
+});
+
+
+//Estilos-->Minifica y unifica los scripts que se encuentren en 'styles', generando uno solo
+//y dejandolo en la carpeta styles
+gulp.task('styles', function(){
+  return gulp.src('src/styles/**/*.css')
+    .pipe(plumber({
+      errorHandler: function (error) {
+        console.log('styles task KO :( ' + error.message);
+        this.emit('end');
+    }}))
+	.pipe(concat('screen.css'))
+    .pipe(rename({suffix: '.min'}))
+    .pipe(minifycss())
+    .pipe(gulp.dest('dist/styles/'))
+    .pipe(connect.reload())
+	.pipe(notify('styles task OK :)'))
+});
+
+//Creamos la tarea watch especificando que cuando cambie un archivo en el subdirectorio js con extensión js se debe ejecutar la tarea uglify
+//Se modificó la tarea default para que ejecute uglify y watch
+//NOTA Las tareas de gulp corren en paralelo y no de forma sequencial por lo que hay que tener cuidado con tareas que necesitan que otra se halla terminado
+gulp.task('watch', function() {
+	
+  gulp.watch('src/**/*.html', ['htmlPartials']);	
+  gulp.watch('src/styles/**/*.css', ['styles']);
+  gulp.watch('src/scripts/**/*.js', ['js']);
+  gulp.watch('src/app/**/*.js', ['controllers']);
+
+});
+
+
+gulp.task('connect', function() {
+    connect.server({
+        root: 'src',
+        port: 8080,
+        livereload: true
+    });
+
+});
+
+gulp.task('PreConnect', function() {
+    connect.server({
+        root: 'dist',
+        port: 8081,
+        livereload: true
+    });
+	gulp.watch('src/**/*.html', ['htmlPartials']);	
+	gulp.watch('src/styles/**/*.css', ['styles']);
+	gulp.watch('src/scripts/**/*.js', ['js']);
+	gulp.watch('src/app/**/*.js', ['controllers']);	
+});
+
+
+gulp.task('default', ['htmlPartials', 'js','controllers', 'styles']);
+
+gulp.task('Prerelease', ['htmlPartials', 'js','controllers', 'styles','PreConnect']);
+
+gulp.task('release', ['htmlPartials', 'js','controllers', 'styles']);
+
+gulp.task('debug', ['connect']);
